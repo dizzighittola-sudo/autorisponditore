@@ -1,4 +1,4 @@
-# exnovoGAS: AI Parish Secretary
+# Parish Email Secretary: AI Assistant
 
 [![Language: IT](https://img.shields.io/badge/Language-Italian-green?style=flat-square)](README_IT.md) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -6,7 +6,7 @@ An intelligent auto-responder system for Gmail, specifically designed for Parish
 
 ## Overview
 
-**exnovoGAS** is more than just an auto-responder. It's an AI-driven assistant that:
+**Parish Email Secretary** is more than just an auto-responder. It's an AI-driven assistant that:
 *   **Filters** incoming emails to identify what needs a response.
 *   **Classifies** requests (Sacraments, Appointments, Pastoral support, etc.).
 *   **Consults** a dynamic Knowledge Base (Google Sheets).

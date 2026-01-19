@@ -1,4 +1,4 @@
-# exnovoGAS: Segreteria Parrocchiale AI
+# Segreteria Email Parrocchiale: Assistente AI
 
 [![Language: EN](https://img.shields.io/badge/Language-English-blue?style=flat-square)](README.md) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -6,7 +6,7 @@ Un sistema di autorisponditore intelligente per Gmail, progettato specificamente
 
 ## Panoramica
 
-**exnovoGAS** è più di un semplice autorisponditore. È un assistente guidato dall'AI che:
+**Segreteria Email Parrocchiale** è più di un semplice autorisponditore. È un assistente guidato dall'AI che:
 *   **Filtra** le email in arrivo per identificare cosa richiede risposta.
 *   **Classifica** le richieste (Sacramenti, Appuntamenti, Supporto pastorale, ecc.).
 *   **Consulta** una Knowledge Base dinamica (Google Sheets).
