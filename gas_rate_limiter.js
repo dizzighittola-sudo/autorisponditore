@@ -478,6 +478,7 @@ class GeminiRateLimiter {
     this.cache.rpmWindow = newRpm;
 
     // 2. Pulisci vecchie entry e applica limite massimo su TPM
+    // PropertiesService ha limiti di dimensione (~9KB)
     let newTpm = tpmWindow.filter(function (e) {
       return now - e.timestamp < 60000;
     });
