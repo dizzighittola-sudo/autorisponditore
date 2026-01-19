@@ -2,9 +2,11 @@
 PLACEHOLDERS_GAS.txt
 gas_config_template.js
 
-# Credenziali e configurazione clasp
+# Credenziali e configurazione clasp/GAS
 .clasp.json
 .clasprc.json
+.claspignore
+appsscript.json
 
 # File di sistema
 .DS_Store
