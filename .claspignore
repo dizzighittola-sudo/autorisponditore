@@ -1,0 +1,5 @@
+# Ignora file non-GAS
+*.md
+*.txt
+gas_config_template.js
+PLACEHOLDERS_GAS.txt
