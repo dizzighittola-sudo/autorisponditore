@@ -289,8 +289,8 @@ class MemoryService {
         // --- FINE SEZIONE CRITICA ---
 
       } catch (error) {
-        console.error(`❌ Errore aggiornamento atomico memoria: ${error.message}`);
-        return false;
+        console.warn(`⚠️ Errore aggiornamento atomico (tentativo ${i + 1}): ${error.message}`);
+        Utilities.sleep(Math.pow(2, i) * 200);
       } finally {
         try { cache.remove(lockKey); } catch (e) { console.warn(`⚠️ Errore rimozione lock (Atomic): ${e.message}`); }
       }

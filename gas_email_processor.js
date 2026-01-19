@@ -145,9 +145,13 @@ class EmailProcessor {
       });
 
       // Solo messaggi da mittenti esterni
+      // NOTA: Se senderEmail è null/vacante (es. extraction fallita), lo lasciamo passare
+      // per evitare drop silenziosi. Sarà gestito/validato negli step successivi.
       const externalUnread = unlabeledUnread.filter(message => {
         const senderEmail = this.gmailService.extractMessageDetails(message).senderEmail;
-        return senderEmail && senderEmail.toLowerCase() !== myEmail.toLowerCase();
+        // Se non riusciamo ad estrarre l'email, assumiamo che NON sia noi (fail open)
+        if (!senderEmail) return true;
+        return senderEmail.toLowerCase() !== myEmail.toLowerCase();
       });
 
       // Se non ci sono messaggi non letti non ancora etichettati → skip
@@ -608,7 +612,7 @@ Dettaglio: ${v.reason}
     }
 
     // Cerca thread non letti
-    const searchQuery = `in:inbox is:unread -label:${this.config.labelName}`;
+    const searchQuery = `in:inbox is:unread`;
     const threads = GmailApp.search(
       searchQuery,
       0,
