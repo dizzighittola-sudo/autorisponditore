@@ -157,7 +157,7 @@ Email Arrives
 │  AI GENERATION (GeminiService)                           │
 │  - Gemini API call with retry (max 3)                   │
 │  - Safety settings configured                           │
-│  - Token counting for billing                           │
+│  - Token counting for billing                            │
 └──────────────┬──────────────────────────────────────────┘
                │
                v
@@ -775,3 +775,10 @@ Email Content
            ├─ Gemini API (Google-owned, ephemeral)
            └─ Google Sheets (customer owned)
 ```
+
+### GDPR Compliance
+
+- **No Data Retention by AI**: Gemini does not use data for training.
+- **Audit Logs**: Available in Google Cloud logs (if enabled).
+- **Right to be Forgotten**: Manual deletion of row in "ConversationMemory".
+- **Access Control**: Data accessible only via authorized Google Workspace accounts.
