@@ -186,7 +186,7 @@ class EmailProcessor {
       // ═══════════════════════════════════════════════════════════════
       // STEP 0.5: ANTI-LOOP (smart detection)
       // ═══════════════════════════════════════════════════════════════
-      const MAX_THREAD_LENGTH = 10;
+      const MAX_THREAD_LENGTH = (typeof CONFIG !== 'undefined' && CONFIG.MAX_THREAD_LENGTH) ? CONFIG.MAX_THREAD_LENGTH : 10;
       const MAX_CONSECUTIVE_EXTERNAL = 5;
 
       if (messages.length > MAX_THREAD_LENGTH) {

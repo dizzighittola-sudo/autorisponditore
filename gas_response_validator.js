@@ -323,7 +323,7 @@ class ResponseValidator {
     for (const p of this.placeholders) {
       // Per '...', verifica se usato come placeholder (non ellissi nel testo)
       if (p === '...') {
-        if (/\[\.\.\.]/g.test(response) || /\.\.\.\\s*$/g.test(response)) {
+        if (/\[\.\.\.]/g.test(response) || /\.\.\.\s*$/g.test(response)) {
           foundPlaceholders.push(p);
         }
       } else if (responseLower.includes(p.toLowerCase())) {
