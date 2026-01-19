@@ -247,11 +247,14 @@ function withSheetsRetry(fn, context = 'Operazione Sheets') {
     try {
       return fn();
     } catch (error) {
-      const isRetryable = error.message.includes('503') ||
-        error.message.includes('500') ||
-        error.message.includes('timeout') ||
-        error.message.includes('Timeout') ||
-        error.message.includes('Service invoked too many times');
+      // Normalizzazione messaggio errore per sicurezza
+      const message = String(error.message || '');
+
+      const isRetryable = message.includes('503') ||
+        message.includes('500') ||
+        message.includes('timeout') ||
+        message.includes('Timeout') ||
+        message.includes('Service invoked too many times');
 
       if (isRetryable && attempt < maxRetries - 1) {
         const waitMs = baseBackoff * Math.pow(2, attempt);
