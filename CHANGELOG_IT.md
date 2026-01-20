@@ -10,6 +10,10 @@ e questo progetto aderisce a [Semantic Versioning](https://semver.org/lang/it/).
 ## [2.4.0] - UNRELEASED
 
 ### 🎉 Aggiunto
+- [x] **Strategia Cross-Key Quality First**: Supporto multi-chiave API con fallback intelligente
+  - Usa chiave di riserva quando la quota primaria è esaurita
+  - Privilegia il modello di alta qualità (Flash 2.5) rispetto ai modelli lite
+  - Fallback a 4 livelli: Primary High → Backup High → Primary Lite → Backup Lite
 - [ ] Dashboard web statistiche (in sviluppo)
 - [x] Supporto Gemini 2.5 Flash ottimizzato
 - [x] Quick Decision Tree per troubleshooting rapido
@@ -18,6 +22,9 @@ e questo progetto aderisce a [Semantic Versioning](https://semver.org/lang/it/).
 - [x] Checklist pre-commit per sviluppatori
 
 ### 🔧 Modificato
+- [x] `MAX_EMAILS_PER_RUN` ridotto da 10 a 3 (previene timeout con strategia multi-tentativo)
+- [x] Rate Limiter: aggiunto bypass `skipRateLimit` per chiavi di riserva
+- [x] GeminiService: `generateResponse()` ora accetta opzioni per override chiave/modello
 - [x] Rate Limiter: cache ottimizzata (ridotto I/O 60%)
 - [x] Prompt Engine: profiling dinamico (lite/standard/heavy)
 - [x] MemoryService: ricerca ottimizzata con TextFinder

@@ -490,6 +490,47 @@ if (now - cache.lastCacheUpdate > 10000) {
 }
 ```
 
+#### Strategia Cross-Key Quality First
+
+**Supporto Multi-Chiave API:**
+
+Il sistema supporta una chiave API di riserva per massimizzare la qualità delle risposte:
+
+```javascript
+// Strategia Fallback a 4 Livelli
+attemptStrategy = [
+  { name: 'Primary High-Quality', key: primaryKey, model: 'gemini-2.5-flash', skipRateLimit: false },
+  { name: 'Backup High-Quality', key: backupKey, model: 'gemini-2.5-flash', skipRateLimit: true },
+  { name: 'Primary Lite', key: primaryKey, model: 'gemini-2.5-flash-lite', skipRateLimit: false },
+  { name: 'Backup Lite', key: backupKey, model: 'gemini-2.5-flash-lite', skipRateLimit: true }
+];
+
+for (plan of attemptStrategy) {
+  if (!plan.key) continue; // Salta se chiave di riserva non configurata
+  
+  response = geminiService.generateResponse(prompt, {
+    apiKey: plan.key,
+    modelName: plan.model,
+    skipRateLimit: plan.skipRateLimit
+  });
+  
+  if (response) break; // Successo!
+}
+```
+
+**Vantaggi:**
+- 🎯 **Qualità Prima** → Prova sempre prima il modello di alta qualità
+- 🔄 **Degrado Graduale** → Passa al modello lite solo quando necessario
+- 📊 **Statistiche Pulite** → La chiave di riserva bypassa il rate limiter locale
+- ⏰ **Prevenzione Timeout** → Batch ridotto a 3 email per esecuzione
+
+**Configurazione:**
+```javascript
+// Nelle Script Properties (non nel codice!)
+GEMINI_API_KEY = 'chiave-primaria';
+GEMINI_API_KEY_BACKUP = 'chiave-di-riserva'; // Opzionale
+```
+
 ---
 
 ### ResponseValidator.gs - 7-Layer Validation

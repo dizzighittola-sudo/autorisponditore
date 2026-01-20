@@ -307,6 +307,34 @@ class GeminiRateLimiter {
    */
   executeRequest(taskType, requestFn, options) {
     options = options || {};
+
+    // ═══════════════════════════════════════════════════════════════════
+    // BYPASS PER CHIAVE DI RISERVA
+    // Se stiamo usando una chiave esterna, NON dobbiamo tracciare i consumi
+    // sul Rate Limiter locale per non inquinare le statistiche della chiave principale
+    // ═══════════════════════════════════════════════════════════════════
+    if (options.skipRateLimit) {
+      console.warn('⏩ RateLimiter BYPASSED (Chiave di Riserva in uso)');
+      try {
+        const startTime = Date.now();
+        // Esecuzione diretta senza controlli quota
+        const result = requestFn(options.modelNameOverride || 'gemini-2.5-flash');
+        const duration = Date.now() - startTime;
+
+        return {
+          success: true,
+          result: result,
+          modelUsed: options.modelNameOverride || 'backup-model',
+          quotaUsed: { rpd: 0, rpm: 0 }, // Statistiche fittizie per non sporcare contatori
+          duration: duration
+        };
+      } catch (e) {
+        // Se fallisce, rilancia l'errore per gestione esterna
+        throw e;
+      }
+    }
+    // ═══════════════════════════════════════════════════════════════════
+
     const estimatedTokens = options.estimatedTokens || 1000;
     const maxRetries = options.maxRetries || 3;
     const preferQuality = options.preferQuality || false;

@@ -489,6 +489,47 @@ if (now - cache.lastCacheUpdate > 10000) {
 }
 ```
 
+#### Cross-Key Quality First Strategy
+
+**Multi-API-Key Support:**
+
+The system supports a backup API key for maximum response quality:
+
+```javascript
+// 4-Level Fallback Strategy
+attemptStrategy = [
+  { name: 'Primary High-Quality', key: primaryKey, model: 'gemini-2.5-flash', skipRateLimit: false },
+  { name: 'Backup High-Quality', key: backupKey, model: 'gemini-2.5-flash', skipRateLimit: true },
+  { name: 'Primary Lite', key: primaryKey, model: 'gemini-2.5-flash-lite', skipRateLimit: false },
+  { name: 'Backup Lite', key: backupKey, model: 'gemini-2.5-flash-lite', skipRateLimit: true }
+];
+
+for (plan of attemptStrategy) {
+  if (!plan.key) continue; // Skip if backup key not configured
+  
+  response = geminiService.generateResponse(prompt, {
+    apiKey: plan.key,
+    modelName: plan.model,
+    skipRateLimit: plan.skipRateLimit
+  });
+  
+  if (response) break; // Success!
+}
+```
+
+**Benefits:**
+- 🎯 **Quality First** → Always tries high-quality model first
+- 🔄 **Graceful Degradation** → Falls back to lite model only when necessary
+- 📊 **Clean Statistics** → Backup key bypasses local rate limiter
+- ⏰ **Timeout Prevention** → Batch size reduced to 3 emails per run
+
+**Configuration:**
+```javascript
+// In Script Properties (not in code!)
+GEMINI_API_KEY = 'your-primary-key';
+GEMINI_API_KEY_BACKUP = 'your-backup-key'; // Optional
+```
+
 ---
 
 ### ResponseValidator.gs - 7-Layer Validation

@@ -16,14 +16,30 @@ class GeminiService {
     this.logger = createLogger('GeminiService');
     this.logger.info('Inizializzazione GeminiService');
 
-    // Ottieni configurazione
-    this.apiKey = typeof CONFIG !== 'undefined' ? CONFIG.GEMINI_API_KEY :
-      PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+    // ═══════════════════════════════════════════════════════════════════
+    // CONFIGURAZIONE CHIAVI API (Strategia Cross-Key Quality First)
+    // ═══════════════════════════════════════════════════════════════════
+    this.props = PropertiesService.getScriptProperties();
+
+    // Chiave Primaria
+    this.primaryKey = typeof CONFIG !== 'undefined' ? CONFIG.GEMINI_API_KEY :
+      this.props.getProperty('GEMINI_API_KEY');
+
+    // Chiave di Riserva (opzionale, per fallback quando quota primaria esaurita)
+    this.backupKey = this.props.getProperty('GEMINI_API_KEY_BACKUP');
+
+    // Manteniamo apiKey per retrocompatibilità
+    this.apiKey = this.primaryKey;
+
     this.modelName = typeof CONFIG !== 'undefined' ? CONFIG.MODEL_NAME : 'gemini-2.5-flash';
     this.baseUrl = `https://generativelanguage.googleapis.com/v1beta/models/${this.modelName}:generateContent`;
 
-    if (!this.apiKey || this.apiKey.length < 20) {
+    if (!this.primaryKey || this.primaryKey.length < 20) {
       throw new Error('GEMINI_API_KEY non configurata correttamente');
+    }
+
+    if (this.backupKey) {
+      this.logger.info('Chiave di Riserva configurata (Cross-Key Quality First attivo)');
     }
 
     // Configurazione retry
@@ -71,16 +87,19 @@ class GeminiService {
    * Genera risposta con modello specifico
    * @param {string} prompt - Prompt completo
    * @param {string} modelName - Nome modello API (es. 'gemini-2.5-flash')
+   * @param {string} apiKeyOverride - Chiave API opzionale (per strategia multi-key)
    * @returns {string|null} Testo generato
    */
-  _generateWithModel(prompt, modelName) {
+  _generateWithModel(prompt, modelName, apiKeyOverride = null) {
+    // Usa chiave override se fornita, altrimenti chiave primaria
+    const activeKey = apiKeyOverride || this.primaryKey;
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
     const temperature = typeof CONFIG !== 'undefined' ? CONFIG.TEMPERATURE : 0.5;
     const maxTokens = typeof CONFIG !== 'undefined' ? CONFIG.MAX_OUTPUT_TOKENS : 6000;
 
     console.log(`🤖 Chiamata ${modelName} (prompt: ${prompt.length} caratteri)...`);
 
-    const response = UrlFetchApp.fetch(`${url}?key=${this.apiKey}`, {
+    const response = UrlFetchApp.fetch(`${url}?key=${activeKey}`, {
       method: 'POST',
       contentType: 'application/json',
       payload: JSON.stringify({
@@ -762,16 +781,29 @@ Output JSON:
   /**
    * Genera risposta AI con retry
    * Supporta Rate Limiter + fallback originale
+   * 
+   * @param {string} prompt - Prompt completo
+   * @param {Object} options - Opzioni per strategia Cross-Key Quality First
+   * @param {string} options.apiKey - Chiave API specifica (opzionale)
+   * @param {string} options.modelName - Nome modello specifico (opzionale)
+   * @param {boolean} options.skipRateLimit - Se true, bypassa Rate Limiter locale
+   * @returns {string|null} Testo generato
    */
-  generateResponse(prompt) {
-    // RATE LIMITER PATH
-    if (this.useRateLimiter) {
+  generateResponse(prompt, options = {}) {
+    const targetKey = options.apiKey || this.primaryKey;
+    const targetModel = options.modelName || this.modelName;
+    const skipRateLimit = options.skipRateLimit || false;
+
+    // ═══════════════════════════════════════════════════════════════════
+    // RATE LIMITER PATH (solo se abilitato E non skippato)
+    // ═══════════════════════════════════════════════════════════════════
+    if (this.useRateLimiter && !skipRateLimit) {
       try {
         const estimatedTokens = this._estimateTokens(prompt);
 
         const result = this.rateLimiter.executeRequest(
           'generation',
-          (modelName) => this._generateWithModel(prompt, modelName),
+          (modelName) => this._generateWithModel(prompt, modelName, targetKey),
           {
             estimatedTokens: estimatedTokens,
             preferQuality: true  // Qualità > economia per generation
@@ -784,12 +816,23 @@ Output JSON:
         }
       } catch (error) {
         if (error.message && error.message.includes('QUOTA_EXHAUSTED')) {
-          console.error('❌ Quota esaurita per generazione');
-          return null;
+          console.warn('⚠️ Quota primaria esaurita (intercettato da RateLimiter)');
+          throw error; // Rilancia per gestione strategia nel Processor
         }
         console.warn(`⚠️ Rate Limiter generazione fallito: ${error.message}`);
         // Prosegui con implementazione originale
       }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // CHIAMATA DIRETTA (quando RateLimiter disabilitato O skippato per backup key)
+    // ═══════════════════════════════════════════════════════════════════
+    if (skipRateLimit) {
+      console.log(`⏩ Chiamata diretta (bypass RateLimiter) con ${targetModel}`);
+      return this._withRetry(
+        () => this._generateWithModel(prompt, targetModel, targetKey),
+        'Generazione diretta (Chiave di Riserva)'
+      );
     }
 
     // IMPLEMENTAZIONE ORIGINALE

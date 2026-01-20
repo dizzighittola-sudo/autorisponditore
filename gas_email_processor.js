@@ -495,16 +495,89 @@ Dettaglio: ${v.reason}
       const fullPrompt = typeHint + '\n\n' + prompt;
 
       // ═══════════════════════════════════════════════════════════════
-      // STEP 8: GENERA RISPOSTA
+      // STEP 8: GENERA RISPOSTA (STRATEGIA "CROSS-KEY QUALITY FIRST")
       // ═══════════════════════════════════════════════════════════════
-      const response = this.geminiService.generateResponse(fullPrompt);
+      // NOTA ARCHITETTURALE:
+      // Questa fase può richiedere più tempo del normale (fino a 4 tentativi API).
+      // SCELTA DELIBERATA: Privilegiamo la qualità della risposta (Modello Flash 2.5)
+      // rispetto alla velocità. 
+      // 1. Proviamo Flash 2.5 sulla chiave primaria.
+      // 2. Se fallisce, proviamo Flash 2.5 sulla chiave di RISERVA.
+      // 3. Solo se entrambe falliscono, degradiamo al modello Lite (più economico).
+      // Questo "costo" in termini di tempo è gestito riducendo MAX_EMAILS_PER_RUN a 3.
+      // ═══════════════════════════════════════════════════════════════
 
+      let response = null;
+      let generationError = null;
+      let strategyUsed = null;
+
+      // Definizione Strategia (4 Livelli)
+      const attemptStrategy = [
+        // 1. TENTATIVO STANDARD (Alta Qualità - Chiave Principale)
+        {
+          name: 'Primary High-Quality',
+          key: this.geminiService.primaryKey,
+          model: 'gemini-2.5-flash',
+          skipRateLimit: false
+        },
+        // 2. FALLBACK QUALITÀ (Alta Qualità - Chiave di Riserva)
+        // Usiamo la riserva pur di non degradare l'intelligenza del bot
+        {
+          name: 'Backup High-Quality',
+          key: this.geminiService.backupKey,
+          model: 'gemini-2.5-flash',
+          skipRateLimit: true // Bypassiamo i controlli locali
+        },
+        // 3. DEGRADO PERFORMANCE (Bassa Qualità - Chiave Principale)
+        {
+          name: 'Primary Lite',
+          key: this.geminiService.primaryKey,
+          model: 'gemini-2.5-flash-lite',
+          skipRateLimit: false
+        },
+        // 4. ULTIMA RISORSA (Bassa Qualità - Chiave di Riserva)
+        {
+          name: 'Backup Lite',
+          key: this.geminiService.backupKey,
+          model: 'gemini-2.5-flash-lite',
+          skipRateLimit: true
+        }
+      ];
+
+      // Esecuzione Loop Strategico
+      for (const plan of attemptStrategy) {
+        // Salta se manca la chiave (es. backupKey non configurata)
+        if (!plan.key) continue;
+
+        try {
+          console.log(`🔄 Tentativo Generazione: ${plan.name}...`);
+
+          response = this.geminiService.generateResponse(fullPrompt, {
+            apiKey: plan.key,
+            modelName: plan.model,
+            skipRateLimit: plan.skipRateLimit
+          });
+
+          if (response) {
+            strategyUsed = plan.name;
+            console.log(`✅ Generazione riuscita con strategia: ${plan.name}`);
+            break; // Successo! Esci dal loop
+          }
+
+        } catch (err) {
+          console.warn(`⚠️ Strategia '${plan.name}' fallita: ${err.message}`);
+          generationError = err; // Salva l'ultimo errore
+          // Continua al prossimo step del loop...
+        }
+      }
+
+      // Verifiche finali post-loop
       if (!response) {
-        console.error('   ❌ Generazione risposta fallita');
+        console.error('❌ TUTTE le strategie di generazione sono fallite.');
         this._addErrorLabel(thread);
         this._markMessageAsProcessed(candidate);
         result.status = 'error';
-        result.error = 'Generation failed';
+        result.error = generationError ? generationError.message : 'Generation strategies exhausted';
         return result;
       }
 

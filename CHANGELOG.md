@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.4.0] - UNRELEASED
 
 ### 🎉 Added
+- [x] **Cross-Key Quality First Strategy**: Multi-API-key support with intelligent fallback
+  - Uses backup key when primary quota is exhausted
+  - Prioritizes high-quality model (Flash 2.5) over lite models
+  - 4-level fallback: Primary High → Backup High → Primary Lite → Backup Lite
 - [ ] Web statistics dashboard (in development)
 - [x] Optimized Gemini 2.5 Flash support
 - [x] Quick Decision Tree for rapid troubleshooting
@@ -18,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [x] Pre-commit checklist for developers
 
 ### 🔧 Changed
+- [x] `MAX_EMAILS_PER_RUN` reduced from 10 to 3 (prevents timeout with multi-attempt strategy)
+- [x] Rate Limiter: added `skipRateLimit` bypass for backup keys
+- [x] GeminiService: `generateResponse()` now accepts options for key/model override
 - [x] Rate Limiter: optimized cache (reduced I/O 60%)
 - [x] Prompt Engine: dynamic profiling (lite/standard/heavy)
 - [x] MemoryService: optimized search with TextFinder
