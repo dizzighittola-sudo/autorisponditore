@@ -20,6 +20,11 @@
 ✅ **"I have a personal problem and would like to speak with a priest"** → Empathetic tone + direct contacts  
 ✅ **Email in English/Spanish** → Response in the same language  
 
+### ✨ NEW in v2.4: Advanced Intelligence
+*   **Self-Healing**: Automatically fixes common errors (typos, duplicate links) before sending.
+*   **Multi-Dimensional Analysis**: Understands not just the topic, but the **emotional load** and **complexity**.
+*   **Reactive Memory**: Remembers if you understood ("Thanks!") or are confused ("I don't get it") and adapts the next reply.
+
 ---
 
 ## ⚡ Immediate Benefits

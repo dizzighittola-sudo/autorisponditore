@@ -360,6 +360,37 @@ class MemoryService {
     this.updateMemory(threadId, { category: category });
   }
 
+  /**
+   * Aggiorna la reazione dell'utente a un topic specifico
+   * @param {string} threadId 
+   * @param {string} topic 
+   * @param {string} reaction 'acknowledged' | 'questioned' | 'needs_expansion'
+   */
+  updateReaction(threadId, topic, reaction) {
+    if (!this._initialized || !threadId || !topic) return;
+
+    // Recupera memoria attuale
+    const memory = this.getMemory(threadId);
+    if (!memory || !memory.providedInfo) return;
+
+    const infos = memory.providedInfo;
+    let modified = false;
+
+    // Trova e aggiorna il topic
+    const newInfos = infos.map(info => {
+      if (info.topic === topic) {
+        modified = true;
+        return { ...info, reaction: reaction, lastInteraction: Date.now() };
+      }
+      return info;
+    });
+
+    if (modified) {
+      this.updateMemoryAtomic(threadId, {}, newInfos);
+      console.log(`🧠 Reazione aggiornata per topic '${topic}': ${reaction}`);
+    }
+  }
+
   // ========================================================================
   // METODI HELPER PRIVATI
   // ========================================================================
@@ -406,13 +437,18 @@ class MemoryService {
   _rowToObject(row) {
     const values = Array.isArray(row) ? row : row.values || row;
 
-    let providedInfo = [];
     try {
       if (values[4]) {
-        providedInfo = JSON.parse(values[4]);
+        const raw = JSON.parse(values[4]);
+        // Normalizzazione retrocompatibile: converte stringhe in oggetti
+        providedInfo = Array.isArray(raw) ? raw.map(item => {
+          if (typeof item === 'string') return { topic: item, reaction: 'unknown', timestamp: Date.now() };
+          return item;
+        }) : [];
       }
     } catch (e) {
-      providedInfo = values[4] ? [values[4]] : [];
+      // Fallback per vecchi formati non JSON (se esistenti) o errori
+      providedInfo = values[4] ? [{ topic: String(values[4]), reaction: 'unknown' }] : [];
     }
 
     // Valida timestamp PRIMA della costruzione oggetto
@@ -560,7 +596,42 @@ class MemoryService {
    * Verifica se il servizio è sano
    */
   isHealthy() {
-    return this._initialized;
+    // ========================================================================
+    // EVOLUZIONE 2: COMPLETENESS SCORING (Metodi Sperimentali)
+    // ========================================================================
+
+    /**
+     * Calcola quanto della domanda originale è stato coperto
+     * (Funzionalità avanzata per future implementazioni di auto-valutazione)
+     */
+    _calculateCompleteness(userQuestion, botResponse) {
+      // Estrai richieste informative
+      const requests = [];
+      if (/\bquando\b/i.test(userQuestion)) requests.push('timing');
+      if (/\bdove\b/i.test(userQuestion)) requests.push('location');
+      if (/\bcome\b/i.test(userQuestion)) requests.push('procedure');
+      if (/\bquanto|costo|prezzo/i.test(userQuestion)) requests.push('cost');
+      if (/\bdocument|certificat/i.test(userQuestion)) requests.push('documents');
+
+      if (requests.length === 0) return 1.0; // Nessuna richiesta esplicita rilevabile
+
+      // Verifica copertura (euristica semplice)
+      let covered = 0;
+      const respLower = botResponse.toLowerCase();
+
+      requests.forEach(req => {
+        let hit = false;
+        if (req === 'timing' && /\d{1,2}[:.]\d{2}|mattina|pomeriggio|ore/i.test(respLower)) hit = true;
+        if (req === 'location' && /via|piazza|chiesa|ufficio|sacrestia/i.test(respLower)) hit = true;
+        if (req === 'procedure' && /iscri|porta|invia|compila/i.test(respLower)) hit = true;
+        if (req === 'cost' && /euro|€|gratuit|offert/i.test(respLower)) hit = true;
+        if (req === 'documents' && /document|certificat|nulla osta/i.test(respLower)) hit = true;
+
+        if (hit) covered++;
+      });
+
+      return covered / requests.length;
+    }
   }
 }
 

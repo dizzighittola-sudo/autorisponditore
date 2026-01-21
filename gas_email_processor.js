@@ -297,13 +297,17 @@ class EmailProcessor {
       console.log(`   🌍 Lingua: ${detectedLanguage.toUpperCase()}`);
 
       // ═══════════════════════════════════════════════════════════════
-      // STEP 4: CLASSIFICAZIONE TIPO RICHIESTA
+      // STEP 4: CLASSIFICAZIONE TIPO RICHIESTA (Multi-dimensionale)
       // ═══════════════════════════════════════════════════════════════
       const requestType = this.requestClassifier.classify(
         messageDetails.subject,
         messageDetails.body,
         quickCheck.classification
       );
+
+      // Estrai dati dalla nuova struttura classificazione
+      const categoryHint = this.requestClassifier.getRequestTypeHint(requestType);
+      const isPastoral = requestType.dimensions ? (requestType.dimensions.pastoral > 0.6) : (requestType.type === 'pastoral'); // Compatibilità
 
       // ═══════════════════════════════════════════════════════════════
       // STEP 5: KB ENRICHMENT CONDIZIONALE
@@ -504,8 +508,8 @@ Dettaglio: ${v.reason}
 
       const prompt = this.promptEngine.buildPrompt(promptOptions);
 
-      // Aggiungi hint tipo richiesta
-      const typeHint = this.requestClassifier.getRequestTypeHint(requestType.type);
+      // Aggiungi hint tipo richiesta (nuovo metodo blended)
+      const typeHint = this.requestClassifier.getRequestTypeHint(requestType);
       const fullPrompt = typeHint + '\n\n' + prompt;
 
       // ═══════════════════════════════════════════════════════════════
@@ -643,6 +647,11 @@ Dettaglio: ${v.reason}
           this.gmailService.addLabelToMessage(candidate.getId(), this.config.validationErrorLabel);
         }
 
+        if (validation.fixedResponse) {
+          console.log('   🩹 Usa risposta corretta automaticamente (Self-Healing)');
+          response = validation.fixedResponse;
+        }
+
         console.log(`   ✓ Validazione PASSATA (punteggio: ${validation.score.toFixed(2)})`);
       }
 
@@ -665,10 +674,22 @@ Dettaglio: ${v.reason}
       // ═══════════════════════════════════════════════════════════════
       const providedTopics = this._detectProvidedTopics(response);
 
+      // Costruisci array di oggetti topic (nuovo formato)
+      const topicsWithObjects = providedTopics.map(topic => ({
+        topic: topic,
+        reaction: 'unknown',
+        timestamp: new Date().toISOString()
+      }));
+
+      // Inferisci reazione utente su topic precedenti (se presenti)
+      if (memoryContext.providedInfo && memoryContext.providedInfo.length > 0) {
+        this._inferUserReaction(messageDetails.body, memoryContext.providedInfo, threadId);
+      }
+
       this.memoryService.updateMemoryAtomic(threadId, {
         language: detectedLanguage,
         category: classification.category || requestType.type
-      }, providedTopics.length > 0 ? providedTopics : null);
+      }, topicsWithObjects.length > 0 ? topicsWithObjects : null);
 
       if (candidate) {
         this._markMessageAsProcessed(candidate);
@@ -894,6 +915,45 @@ Dettaglio: ${v.reason}
     }
 
     return topics;
+  }
+  /**
+   * Inferisce la reazione dell'utente rispetto ai topic forniti in precedenza
+   */
+  _inferUserReaction(userBody, previousTopics, threadId) {
+    if (!previousTopics || previousTopics.length === 0) return;
+
+    const bodyLower = userBody.toLowerCase();
+
+    // Pattern semplici di reazione
+    const patterns = {
+      questioned: [
+        'non ho capito', 'non capisco', 'spiegarmi meglio', 'chiarimento',
+        'cosa significa', 'dubbio', 'non è chiaro', 'confuso'
+      ],
+      acknowledged: [
+        'ho capito', 'tutto chiaro', 'grazie per la spiegazione', 'ok grazie',
+        'perfetto', 'chiarissimo', 'ricevuto'
+      ]
+    };
+
+    previousTopics.forEach(info => {
+      const topic = (typeof info === 'object') ? info.topic : info;
+      // Se l'utente menziona il topic o parole chiave correlate
+      // (Semplificazione: match parziale sul nome del topic)
+      if (bodyLower.includes(topic.toLowerCase())) {
+
+        // Check questioned
+        if (patterns.questioned.some(p => bodyLower.includes(p))) {
+          console.log(`🧠 Inferred Reaction: QUESTIONED su topic '${topic}'`);
+          this.memoryService.updateReaction(threadId, topic, 'questioned');
+        }
+        // Check acknowledged
+        else if (patterns.acknowledged.some(p => bodyLower.includes(p))) {
+          console.log(`🧠 Inferred Reaction: ACKNOWLEDGED su topic '${topic}'`);
+          this.memoryService.updateReaction(threadId, topic, 'acknowledged');
+        }
+      }
+    });
   }
 }
 

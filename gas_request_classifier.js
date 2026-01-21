@@ -144,6 +144,10 @@ class RequestTypeClassifier {
    * Classifica la richiesta email
    * Supporta override da classificazione Gemini (approccio ibrido)
    */
+  /**
+   * Classifica la richiesta email
+   * Restituisce dimensioni continue, complessità e tono suggerito.
+   */
   classify(subject, body, externalHint = null) {
     // Smart Truncation (primi 1500 + ultimi 1500 caratteri)
     const MAX_ANALYSIS_LENGTH = 3000;
@@ -156,55 +160,98 @@ class RequestTypeClassifier {
       ).toLowerCase()
       : fullText.toLowerCase();
 
-    // Calcola punteggi
+    // 1. Calcola punteggi grezzi
     const technicalResult = this._calculateScore(text, this.TECHNICAL_INDICATORS);
     const pastoralResult = this._calculateScore(text, this.PASTORAL_INDICATORS);
     const doctrineResult = this._calculateScore(text, this.DOCTRINE_INDICATORS);
-
-    const technicalScore = technicalResult.score;
-    const pastoralScore = pastoralResult.score;
-    const doctrineScore = doctrineResult.score;
     const formalResult = this._calculateScore(text, this.FORMAL_INDICATORS);
-    const formalScore = formalResult.score;
 
-    // Determina tipo (Logica Ibrida)
-    let requestType = 'technical';
+    // 2. Normalizzazione Punteggi (0.0 - 1.0)
+    // Soglia saturazione arbitraria: 5 match = 1.0
+    const SATURATION_POINT = 5;
+    const dimensions = {
+      technical: Math.min(technicalResult.score / SATURATION_POINT, 1.0),
+      pastoral: Math.min(pastoralResult.score / SATURATION_POINT, 1.0),
+      doctrinal: Math.min(doctrineResult.score / SATURATION_POINT, 1.0),
+      formal: Math.min(formalResult.score / SATURATION_POINT, 1.0)
+    };
+
+    // 3. Logica Ibrida (Integrazione Gemini se disponibile)
     let source = 'regex';
-
     if (externalHint && externalHint.category && externalHint.confidence >= 0.75) {
-      // Usa classificazione Gemini se disponibile e confidente
-      requestType = externalHint.category.toLowerCase();
-      source = 'gemini';
-      console.log(`   🤖 Classificatore ibrido: Usato risultato Gemini (${requestType.toUpperCase()}, conf=${externalHint.confidence})`);
-    } else {
-      // Fallback a Regex
-      if (formalScore >= 4) {
-        requestType = 'formal'; // Nuova categoria interna
-      } else if (doctrineScore >= 3) {
-        requestType = 'doctrinal';
-      } else if (pastoralScore >= 3 && pastoralScore > technicalScore) {
-        requestType = 'pastoral';
-      } else if (technicalScore >= 2 && pastoralScore <= 1) {
-        requestType = 'technical';
-      } else if (pastoralScore >= 2 && technicalScore >= 2) {
-        requestType = 'mixed';
-      } else {
-        requestType = 'technical';
+      // Boost dimensionale basato su Gemini
+      const categoryMap = {
+        'technical': 'technical',
+        'appointment': 'technical',
+        'pastoral': 'pastoral',
+        'doctrinal': 'doctrinal',
+        'formal': 'formal',
+        'sbattezzo': 'formal'
+      };
+
+      const mappedDim = categoryMap[externalHint.category.toLowerCase()];
+      if (mappedDim) {
+        dimensions[mappedDim] = Math.max(dimensions[mappedDim], 0.8); // Trust Gemini
+        source = 'hybrid';
       }
-      source = 'regex';
     }
 
-    // Flag di attivazione
-    const needsDiscernment = requestType === 'pastoral' || requestType === 'mixed';
-    const needsDoctrine = requestType === 'doctrinal' || (doctrineScore >= 2 && requestType !== 'technical');
+    // 4. Determinazione Tipo Primario (Backward Compatibility)
+    let requestType = 'technical';
+
+    // Priorità gerarchica
+    if (dimensions.formal >= 0.6) {
+      requestType = 'formal';
+    } else if (dimensions.doctrinal >= 0.6) {
+      requestType = 'doctrinal';
+    } else if (dimensions.pastoral >= 0.6 && dimensions.pastoral > dimensions.technical) {
+      requestType = 'pastoral';
+    } else if (dimensions.pastoral >= 0.4 && dimensions.technical >= 0.4) {
+      requestType = 'mixed';
+    } else {
+      requestType = 'technical';
+    }
+
+    // Override specifico per sbattezzo (Critical logic)
+    if (formalResult.score >= 4) requestType = 'formal';
+
+    // 5. Calcolo Metriche Derivate
+
+    // Complessità: Somma delle dimensioni attive (> 0.2)
+    const activeDims = Object.values(dimensions).filter(v => v > 0.2).length;
+    let complexity = 'Low';
+    if (activeDims >= 3 || Math.max(...Object.values(dimensions)) > 0.8) complexity = 'High';
+    else if (activeDims === 2) complexity = 'Medium';
+
+    // Carico Emotivo: Basato su dimensione pastorale
+    let emotionalLoad = 'Low';
+    if (dimensions.pastoral > 0.7) emotionalLoad = 'High';
+    else if (dimensions.pastoral > 0.4) emotionalLoad = 'Medium';
+
+    // Tono Suggerito
+    let suggestedTone = 'Professionale';
+    if (dimensions.pastoral > dimensions.technical) suggestedTone = 'Empatico e Accogliente';
+    else if (dimensions.formal > 0.5) suggestedTone = 'Istituzionale e Neutro';
+    else if (dimensions.doctrinal > 0.5) suggestedTone = 'Istruttivo e Chiaro';
+    else if (complexity === 'High') suggestedTone = 'Strutturato e Dettagliato';
+
+    // Flag legacy
+    const needsDiscernment = dimensions.pastoral > 0.3 || requestType === 'mixed';
+    const needsDoctrine = dimensions.doctrinal > 0.3 || (dimensions.doctrinal > 0 && requestType !== 'technical');
 
     const result = {
-      type: requestType,
+      type: requestType, // Legacy
       source: source,
-      technicalScore: technicalScore,
-      pastoralScore: pastoralScore,
-      doctrineScore: doctrineScore,
-      formalScore: formalScore,
+      dimensions: dimensions, // New
+      complexity: complexity, // New
+      emotionalLoad: emotionalLoad, // New
+      suggestedTone: suggestedTone, // New
+
+      technicalScore: dimensions.technical, // Normalized
+      pastoralScore: dimensions.pastoral,
+      doctrineScore: dimensions.doctrinal,
+      formalScore: dimensions.formal,
+
       needsDiscernment: needsDiscernment,
       needsDoctrine: needsDoctrine,
       detectedIndicators: [
@@ -215,11 +262,9 @@ class RequestTypeClassifier {
       ]
     };
 
-    console.log(`   📊 Classificazione richiesta: ${requestType.toUpperCase()} (Fonte: ${source})`);
-    if (source === 'regex') {
-      console.log(`      Tech=${technicalScore}, Pastor=${pastoralScore}, Dottr=${doctrineScore}`);
-    }
-    console.log(`      Discernimento=${needsDiscernment}, Dottrina=${needsDoctrine}`);
+    console.log(`   📊 Classificazione: ${requestType.toUpperCase()} (Tono: ${suggestedTone})`);
+    console.log(`      Dims: T=${dimensions.technical.toFixed(2)} P=${dimensions.pastoral.toFixed(2)} D=${dimensions.doctrinal.toFixed(2)} F=${dimensions.formal.toFixed(2)}`);
+    console.log(`      Emotion=${emotionalLoad}, Complex=${complexity}`);
 
     return result;
   }
@@ -244,8 +289,77 @@ class RequestTypeClassifier {
 
   /**
    * Ottiene suggerimento tipo richiesta per iniezione nel prompt
+   * Supporta sia stringa legacy che oggetto classificazione completo
    */
-  getRequestTypeHint(requestType) {
+  getRequestTypeHint(classificationOrType) {
+    // Normalizzazione input: se è stringa (legacy), usa solo switch base
+    if (typeof classificationOrType === 'string') {
+      return this._getLegacyHint(classificationOrType);
+    }
+
+    // Input oggetto completo (Nuovo sistema blended)
+    const cls = classificationOrType;
+    if (!cls || !cls.dimensions) return '';
+
+    // Costruzione Hint Composito
+    // Costruzione Hint Composito (Evoluzione 4: Blended Hints)
+    const hints = [];
+    const dims = cls.dimensions;
+
+    // 1. Header Dinamico
+    let header = `🎯 ANALISI RICHIESTA (Complessità: ${cls.complexity}, Emotività: ${cls.emotionalLoad})`;
+
+    // 2. Mix Dimensionale Graduale
+    if (dims.formal > 0.6) {
+      hints.push(`⚖️ FORMALE (${(dims.formal * 100).toFixed(0)}%):
+       - Usa template rigidi e tono istituzionale
+       - Evita commenti personali non richiesti`);
+    }
+
+    // Componente Tecnica
+    if (dims.technical >= 0.3) {
+      const intensity = dims.technical >= 0.8 ? 'PRIMARIO' : 'IMPORTANTE';
+      hints.push(`⚙️ COMPONENTE TECNICA (${intensity}):
+       - Fornisci informazioni concrete e verificabili
+       - Usa bullet point se 3+ elementi
+       - Specifica orari/date/luoghi esatti`);
+    }
+
+    // Componente Pastorale
+    if (dims.pastoral >= 0.3) {
+      const intensity = dims.pastoral >= 0.8 ? 'PRIMARIA' : 'PRESENTE';
+      const emoContext = cls.emotionalLoad === 'High' ? 'massima priorità empatica' : 'tono cordiale';
+      hints.push(`💙 COMPONENTE PASTORALE (${intensity}):
+       - Riconosci la situazione personale espressa (${emoContext})
+       - ${cls.emotionalLoad === 'High' ? 'Offri disponibilità al dialogo umano' : 'Mostra comprensione e calore'}`);
+    }
+
+    // Componente Dottrinale
+    if (dims.doctrinal >= 0.3) {
+      hints.push(`📖 COMPONENTE DOTTRINALE (RILEVANTE):
+       - Spiega l'insegnamento della Chiesa con chiarezza
+       - Cita fonti se utile (Catechismo, etc.)`);
+    }
+
+    // Istruzioni di Bilanciamento (Core Logic)
+    if (dims.technical >= 0.4 && dims.pastoral >= 0.4) {
+      hints.push(`⚖️ BILANCIAMENTO RICHIESTO:
+       Questa email richiede ENTRAMBI gli approcci (Tecnico + Pastorale).
+       1. Inizia riconoscendo la situazione personale (Empatia)
+       2. Poi fornisci le informazioni concrete richieste (Efficienza)
+       3. Chiudi con disponibilità umana`);
+    }
+
+    // 3. Tono Consigliato
+    const toneInstruction = `\n🗣️ TONO SUGGERITO: ${cls.suggestedTone.toUpperCase()}`;
+
+    return `${header}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n${hints.join('\n\n')}\n${toneInstruction}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+  }
+
+  /**
+   * Metodo privato per backward compatibility con chiamate legacy (solo stringa)
+   */
+  _getLegacyHint(requestType) {
     if (requestType === 'technical') {
       return `
 🎯 TIPO RICHIESTA RILEVATO: TECNICA

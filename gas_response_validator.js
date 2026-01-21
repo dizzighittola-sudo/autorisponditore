@@ -99,97 +99,132 @@ class ResponseValidator {
    * @param {string} salutationMode - Modalità saluto ('full'|'soft'|'none_or_continuity')
    * @returns {Object} Risultato validazione
    */
-  validateResponse(response, detectedLanguage, knowledgeBase, emailContent, emailSubject, salutationMode = 'full') {
+  validateResponse(response, detectedLanguage, knowledgeBase, emailContent, emailSubject, salutationMode = 'full', attemptFix = true) {
     const errors = [];
     const warnings = [];
     const details = {};
     let score = 1.0;
 
-    console.log(`🔍 Validazione risposta (${response.length} caratteri, lingua=${detectedLanguage})...`);
+    // Variabile per gestire la risposta (che potrebbe essere fixata)
+    let currentResponse = response;
+    let wasFixed = false;
 
-    // === CONTROLLO 1: Lunghezza (critico per UX) ===
+    console.log(`🔍 Validazione risposta (${currentResponse.length} caratteri, lingua=${detectedLanguage})...`);
+
+    // --- PRIMO PASSAGGIO DI VALIDAZIONE ---
+    let validationResult = this._runValidationChecks(currentResponse, detectedLanguage, knowledgeBase, salutationMode);
+
+    // --- AUTOCORREZIONE (SELF-HEALING) ---
+    if (!validationResult.isValid && attemptFix) {
+      console.log('🩹 Tentativo Autocorrezione (Self-Healing)...');
+
+      const fixResult = this._attemptAutoFix(currentResponse, validationResult.errors, detectedLanguage);
+
+      if (fixResult.fixed) {
+        console.log('   ✨ Applicati fix automatici. Ri-validazione...');
+        currentResponse = fixResult.text;
+        wasFixed = true;
+
+        // Ri-esegui validazione sul testo corretto
+        validationResult = this._runValidationChecks(currentResponse, detectedLanguage, knowledgeBase, salutationMode);
+
+        if (validationResult.isValid) {
+          console.log('   ✅ Autocorrezione ha risolto i problemi!');
+        } else {
+          console.warn('   ⚠️ Autocorrezione insufficiente. Errori residui.');
+        }
+      } else {
+        console.log('   🚫 Nessun fix automatico applicabile.');
+      }
+    }
+
+    // Log finale
+    if (validationResult.errors.length > 0) {
+      console.warn(`❌ Validazione FALLITA: ${validationResult.errors.length} errore/i`);
+      validationResult.errors.forEach((err, i) => console.warn(`   ${i + 1}. ${err}`));
+    }
+
+    if (validationResult.isValid) {
+      console.log(`✓ Validazione SUPERATA (punteggio: ${validationResult.score.toFixed(2)})`);
+    }
+
+    return {
+      isValid: validationResult.isValid,
+      score: validationResult.score,
+      errors: validationResult.errors,
+      warnings: validationResult.warnings,
+      details: validationResult.details,
+      fixedResponse: wasFixed ? currentResponse : null, // Restituisci testo corretto se modificato
+      metadata: {
+        responseLength: currentResponse.length,
+        expectedLanguage: detectedLanguage,
+        threshold: this.MIN_VALID_SCORE,
+        wasFixed: wasFixed
+      }
+    };
+  }
+
+  /**
+   * Esegue i check effettivi (estratto per riutilizzo)
+   */
+  _runValidationChecks(response, detectedLanguage, knowledgeBase, salutationMode) {
+    const errors = [];
+    const warnings = [];
+    const details = {};
+    let score = 1.0;
+
+    // === CONTROLLO 1: Lunghezza ===
     const lengthResult = this._checkLength(response);
     errors.push(...lengthResult.errors);
     warnings.push(...lengthResult.warnings);
     details.length = lengthResult;
     score *= lengthResult.score;
 
-    // === CONTROLLO 2: Consistenza lingua (critico per multilingua) ===
+    // === CONTROLLO 2: Consistenza lingua ===
     const langResult = this._checkLanguage(response, detectedLanguage);
     errors.push(...langResult.errors);
     warnings.push(...langResult.warnings);
     details.language = langResult;
     score *= langResult.score;
 
-    // === CONTROLLO 3: Firma (critico per identità, opzionale in follow-up) ===
+    // === CONTROLLO 3: Firma ===
     const sigResult = this._checkSignature(response, salutationMode);
     errors.push(...sigResult.errors);
     warnings.push(...sigResult.warnings);
     details.signature = sigResult;
     score *= sigResult.score;
 
-    // === CONTROLLO 4: Contenuto vietato (critico) ===
+    // === CONTROLLO 4: Contenuto vietato ===
     const contentResult = this._checkForbiddenContent(response);
     errors.push(...contentResult.errors);
     details.content = contentResult;
     score *= contentResult.score;
 
-    // === CONTROLLO 5: Allucinazioni (critico) ===
+    // === CONTROLLO 5: Allucinazioni ===
     const hallucResult = this._checkHallucinations(response, knowledgeBase);
     errors.push(...hallucResult.errors);
     warnings.push(...hallucResult.warnings);
     details.hallucinations = hallucResult;
     score *= hallucResult.score;
 
-    // === CONTROLLO 6: Maiuscola dopo virgola (grammatica italiano) ===
+    // === CONTROLLO 6: Maiuscola dopo virgola ===
     const capResult = this._checkCapitalAfterComma(response, detectedLanguage);
     errors.push(...capResult.errors);
     warnings.push(...capResult.warnings);
     details.capitalAfterComma = capResult;
     score *= capResult.score;
 
-    // === CONTROLLO 7: Ragionamento esposto (thinking leak Gemini 2.5) ===
+    // === CONTROLLO 7: Ragionamento esposto ===
     const reasoningResult = this._checkExposedReasoning(response);
     errors.push(...reasoningResult.errors);
     warnings.push(...reasoningResult.warnings);
     details.exposedReasoning = reasoningResult;
     score *= reasoningResult.score;
 
-    // === DETERMINA VALIDITÀ ===
+    // Determina validità
     const isValid = errors.length === 0 && score >= this.MIN_VALID_SCORE;
 
-    // === LOG RISULTATI ===
-    if (errors.length > 0) {
-      console.warn(`❌ Validazione FALLITA: ${errors.length} errore/i`);
-      errors.forEach((err, i) => console.warn(`   ${i + 1}. ${err}`));
-    }
-
-    if (warnings.length > 0) {
-      console.log(`⚠️ ${warnings.length} avviso/i`);
-      warnings.slice(0, 3).forEach((warn, i) => console.log(`   ${i + 1}. ${warn}`));
-      if (warnings.length > 3) {
-        console.log(`   ... e altri ${warnings.length - 3}`);
-      }
-    }
-
-    if (isValid) {
-      console.log(`✓ Validazione SUPERATA (punteggio: ${score.toFixed(2)})`);
-    } else {
-      console.warn(`✗ Validazione FALLITA (punteggio: ${score.toFixed(2)}, soglia: ${this.MIN_VALID_SCORE})`);
-    }
-
-    return {
-      isValid: isValid,
-      score: score,
-      errors: errors,
-      warnings: warnings,
-      details: details,
-      metadata: {
-        responseLength: response.length,
-        expectedLanguage: detectedLanguage,
-        threshold: this.MIN_VALID_SCORE
-      }
-    };
+    return { isValid, score, errors, warnings, details };
   }
 
   // ========================================================================
@@ -456,8 +491,8 @@ class ResponseValidator {
       'Il', 'Lo', 'La', 'I', 'Gli', 'Le', 'Un', 'Uno', 'Una', "Un'",
       // Preposizioni
       'Per', 'Con', 'In', 'Su', 'Tra', 'Fra', 'Da', 'Di', 'A',
-      // Congiunzioni e particelle
-      'Ma', 'Se', 'Che', 'Non', 'Sì', 'No',
+      // Congiunzioni e particelle (AGGIUNTE "E", "Ed")
+      'Ma', 'Se', 'Che', 'Non', 'Sì', 'No', 'E', 'Ed', 'O', 'Oppure',
       // Pronomi
       'Vi', 'Ti', 'Mi', 'Ci', 'Si', 'Li',
       // Altre parole comuni
@@ -466,7 +501,7 @@ class ResponseValidator {
 
     // Parole inglesi - lista limitata
     const englishForbiddenCaps = [
-      'The', 'An', 'For', 'With', 'On', 'At', 'If', 'Or', 'And', 'But'
+      'The', 'An', 'For', 'With', 'On', 'At', 'If', 'Or', 'And', 'But', 'To', 'In'
     ];
 
     // Parole spagnole
@@ -552,6 +587,89 @@ class ResponseValidator {
     }
 
     return { score, errors, warnings, foundPatterns };
+  }
+
+  // ========================================================================
+  // METODI DI AUTO-CORREZIONE (SELF-HEALING)
+  // ========================================================================
+
+  /**
+   * Tenta di correggere automaticamente gli errori rilevati
+   */
+  _attemptAutoFix(response, errors, language) {
+    let fixedText = response;
+    let modified = false;
+
+    // 1. Correzione Link duplicati (Markdown)
+    // Cerca [url](url) o [url](url...) e semplifica
+    const fixedLinks = this._fixDuplicateLinks(fixedText);
+    if (fixedLinks !== fixedText) {
+      fixedText = fixedLinks;
+      modified = true;
+      console.log('   🩹 Fix Links applicato');
+    }
+
+    // 2. Correzione Maiuscole dopo virgola
+    // Applicabile solo se non è un errore di Thinking Leak (che richiede rigenerazione)
+    // e se non ci sono placeholder
+    if (!errors.some(e => e.includes('RAGIONAMENTO ESPOSTO') || e.includes('placeholder'))) {
+      const fixedCaps = this._fixCapitalAfterComma(fixedText, language);
+      if (fixedCaps !== fixedText) {
+        fixedText = fixedCaps;
+        modified = true;
+        console.log('   🩹 Fix Maiuscole applicato');
+      }
+    }
+
+    return { fixed: modified, text: fixedText };
+  }
+
+  /**
+   * Corregge link markdown ridondanti
+   * Es. [https://example.com](https://example.com) -> https://example.com
+   */
+  _fixDuplicateLinks(text) {
+    // Caso 1: [URL](URL) -> URL
+    // Regex cattura: [ (gruppo1) ] ( (gruppo2) )
+    // Verifica se gruppo1 == gruppo2 (o molto simile)
+    return text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, label, url) => {
+      if (label.trim() === url.trim() || url.includes(label.trim())) {
+        return url; // Ritorna solo l'URL
+      }
+      return match;
+    });
+  }
+
+  /**
+   * Corregge maiuscole post-virgola per parole vietate
+   */
+  _fixCapitalAfterComma(text, language) {
+    // Ri-utilizza la lista delle parole vietate (definita internalmente o spostata a proprietà classe)
+    // Per semplicità, ridefinisco qui quelle critiche italiane
+    // TODO: Centralizzare la lista 'forbiddenCaps' come proprietà di classe in refactoring futuro
+    const targets = [
+      'Siamo', 'Restiamo', 'Sono', 'È', "E'", 'Era', 'Sarà',
+      'Ho', 'Hai', 'Ha', 'Abbiamo', 'Avete', 'Hanno',
+      'Vorrei', 'Vorremmo', 'Volevamo', 'Desideriamo', 'Informiamo',
+      'Il', 'Lo', 'La', 'I', 'Gli', 'Le', 'Un', 'Uno', 'Una', "Un'",
+      'Per', 'Con', 'In', 'Su', 'Tra', 'Fra', 'Da', 'Di', 'A',
+      'Ma', 'Se', 'Che', 'Non', 'Sì', 'No', 'E', 'Ed', 'O', 'Oppure',
+      'Vi', 'Ti', 'Mi', 'Ci', 'Si', 'Li',
+      'Ecco', 'Gentile', 'Caro', 'Cara', 'Spettabile'
+    ];
+
+    let result = text;
+
+    // Per ogni parola vietata, cerca ", Parola" e sostituisci con ", parola"
+    // Usa word boundary \b per evitare match parziali
+    targets.forEach(word => {
+      const regex = new RegExp(`,\\s+(${word})\\b`, 'g');
+      result = result.replace(regex, (match, p1) => {
+        return match.replace(p1, p1.toLowerCase());
+      });
+    });
+
+    return result;
   }
 
   // ========================================================================

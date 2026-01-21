@@ -21,6 +21,11 @@
 ✅ **"Ho un problema personale e vorrei parlare con un sacerdote"** → Tono empatico + contatti diretti  
 ✅ **Email in inglese/spagnolo** → Risposta nella stessa lingua  
 
+### ✨ NOVITÀ v2.4: Intelligenza Avanzata
+*   **Self-Healing**: Corregge errori comuni (maiuscole, link duplicati) automaticamente.
+*   **Analisi Multi-Dimensionale**: Capisce non solo l'argomento ma anche il **carico emotivo** e la **complessità**.
+*   **Memoria Reattiva**: Ricorda se hai capito ("Grazie!") o se sei confuso ("Non ho capito") e adatta la risposta successiva.
+
 ---
 
 ## ⚡ Vantaggi Immediati
@@ -368,8 +373,9 @@ Questo progetto è **open source** e accoglie contributi da:
 - ⛪ **Operatori pastorali** → Feedback su tono risposte, casi d'uso
 - 🌍 **Traduttori** → Supporto nuove lingue
 - 📚 **Documentatori** → Guide, tutorial, esempi
+- 🐛 **Tester** → Segnalazione bug
 
-Vedi [CONTRIBUTING_IT.md](docs/CONTRIBUTING_IT.md) per dettagli.
+Leggi [CONTRIBUTING_IT.md](docs/CONTRIBUTING_IT.md) per i dettagli.
 
 ---
 

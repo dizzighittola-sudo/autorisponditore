@@ -437,9 +437,38 @@ This is MANDATORY. The sender may not understand Italian.
     }
 
     if (memoryContext.providedInfo && memoryContext.providedInfo.length > 0) {
-      const infoList = memoryContext.providedInfo.join(', ');
-      sections.push(`• INFORMAZIONI GIÀ FORNITE: ${infoList}`);
-      sections.push('⚠️ NON RIPETERE queste informazioni se non richieste esplicitamente.');
+      const infoList = [];
+      const questionedTopics = [];
+      const acknowledgedTopics = [];
+
+      memoryContext.providedInfo.forEach(item => {
+        // Gestione retrocompatibile (stringa o oggetto)
+        const topic = (typeof item === 'object') ? item.topic : item;
+        const reaction = (typeof item === 'object') ? item.reaction : 'unknown';
+
+        if (reaction === 'questioned') {
+          questionedTopics.push(topic);
+        } else if (reaction === 'acknowledged') {
+          acknowledgedTopics.push(topic);
+        } else {
+          infoList.push(topic);
+        }
+      });
+
+      if (infoList.length > 0) {
+        sections.push(`• INFORMAZIONI GIÀ FORNITE: ${infoList.join(', ')}`);
+        sections.push('⚠️ NON RIPETERE queste informazioni se non richieste esplicitamente.');
+      }
+
+      if (acknowledgedTopics.length > 0) {
+        sections.push(`✅ UTENTE HA CAPITO: ${acknowledgedTopics.join(', ')}`);
+        sections.push('🚫 NON RIPETERE ASSOLUTAMENTE queste informazioni. Dai per scontato che le sappiano.');
+      }
+
+      if (questionedTopics.length > 0) {
+        sections.push(`❓ UTENTE NON HA CAPITO: ${questionedTopics.join(', ')}`);
+        sections.push('⚡ URGENTE: Spiega questi punti di nuovo MA con parole diverse, più semplici e chiare. Usa esempi.');
+      }
     }
 
     if (sections.length === 0) return null;
