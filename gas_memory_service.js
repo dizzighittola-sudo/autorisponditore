@@ -436,6 +436,7 @@ class MemoryService {
    */
   _rowToObject(row) {
     const values = Array.isArray(row) ? row : row.values || row;
+    let providedInfo = [];
 
     try {
       if (values[4]) {
