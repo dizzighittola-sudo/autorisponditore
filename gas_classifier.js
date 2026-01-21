@@ -54,6 +54,11 @@ class Classifier {
         'prezzo', 'tariffa', 'costo', 'listino', 'budget',
         'orçamento', 'cotação', 'proposta', 'preço',
         'quote', 'quotation', 'pricing', 'offer', 'estimate', 'price list'
+      ],
+      'sbattezzo': [
+        'sbattezzo', 'sbattezzamento', 'apostasia', 'apostatare',
+        'abbandonare la religione', 'abbandonare la fede', 'rinnegare la fede',
+        'non mi ritengo più cristiano', 'cancellazione dal registro', 'registri del battesimo'
       ]
     };
 

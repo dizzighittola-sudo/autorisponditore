@@ -174,15 +174,22 @@ COMPITI:
    - "TECHNICAL": orari, documenti, info pratiche, iscrizioni
    - "PASTORAL": richieste di aiuto, situazioni personali, lutto
    - "DOCTRINAL": dubbi di fede, domande teologiche
+   - "FORMAL": richieste di sbattezzo, cancellazione registri, apostasia
    - "MIXED": mix di tecnica e pastorale
 4. Estrai l'argomento principale (topic)
 5. Fornisci un breve ragionamento (reason)
+
+⚠️ REGOLA CRITICA "SBATTEZZO":
+Se l'utente esprime la volontà di non essere più cristiano, essere cancellato dai registri o "sbattezzarsi":
+- Classifica SEMPRE come "FORMAL"
+- Topic: "sbattezzo"
+- NON classificarlo come "PASTORAL" anche se c'è un tono emotivo.
 
 Output JSON:
 {
   "reply_needed": boolean,
   "language": "string (codice ISO 639-1)",
-  "category": "TECHNICAL" | "PASTORAL" | "DOCTRINAL" | "MIXED",
+  "category": "TECHNICAL" | "PASTORAL" | "DOCTRINAL" | "FORMAL" | "MIXED",
   "topic": "string",
   "confidence": number (0.0-1.0),
   "reason": "string"

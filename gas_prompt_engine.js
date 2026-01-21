@@ -1,6 +1,6 @@
 /**
  * PromptEngine.gs - Generazione prompt modulare
- * 18 classi template per composizione prompt
+ * 19 classi template per composizione prompt
  * Supporta filtering dinamico basato su profilo
  */
 
@@ -22,7 +22,7 @@ class PromptEngine {
       'ExamplesTemplate'
     ];
 
-    this.logger.info('PromptEngine inizializzato', { templates: 18 });
+    this.logger.info('PromptEngine inizializzato', { templates: 19 });
   }
 
   /**
@@ -170,6 +170,12 @@ class PromptEngine {
     const structureHint = this._renderResponseStructure(category, subIntents);
     if (structureHint) sections.push(structureHint);
 
+    // 10.5 TEMPLATE SBATTEZZO (PRIORITÀ MASSIMA)
+    const normalizedTopic = (topic || '').toLowerCase();
+    if (normalizedTopic.includes('sbattezzo') || category === 'formal' || (category === 'sbattezzo')) {
+      sections.push(this._renderSbattezzoTemplate(senderName));
+    }
+
     // 11. CRONOLOGIA CONVERSAZIONE - SEMPRE INCLUSO
     if (conversationHistory) {
       sections.push(this._renderConversationHistory(conversationHistory));
@@ -191,7 +197,10 @@ class PromptEngine {
     sections.push(this._renderResponseGuidelines(detectedLanguage, currentSeason, salutation, closing));
 
     // 17. CASI SPECIALI - FILTRABILE
-    addTemplate('SpecialCasesTemplate', this._renderSpecialCases());
+    // Inibisci casi speciali se è uno sbattezzo per evitare interferenze pastorali
+    if (!normalizedTopic.includes('sbattezzo') && category !== 'formal') {
+      addTemplate('SpecialCasesTemplate', this._renderSpecialCases());
+    }
 
     // 18. CHECKLIST FINALE (ultimo - rinforzo) - SEMPRE INCLUSO
     sections.push(this._renderFinalChecklist());
@@ -1126,6 +1135,41 @@ Prima di generare la risposta, verifica mentalmente:
     console.log(`📦 KB troncata: ${keptParagraphs}/${originalParagraphs} paragrafi (${truncatedContent.length}/${kbContent.length} caratteri)`);
 
     return truncatedContent + truncationMarker;
+  }
+  // ========================================================================
+  // TEMPLATE 17b: SBATTEZZO (TESTO BLINDATO)
+  // ========================================================================
+
+  _renderSbattezzoTemplate(senderName) {
+    return `═══════════════════════════════════════════════════════════════════════════
+🚨 TEMPLATE OBBLIGATORIO: RICHIESTA CANCELLAZIONE REGISTRI (SBATTEZZO) 🚨
+═══════════════════════════════════════════════════════════════════════════
+
+USA ESATTAMENTE QUESTA STRUTTURA E QUESTO TONO. NON AGGIUNGERE ALTRO.
+
+Gentile ${senderName},
+
+con la presente confermiamo di aver ricevuto la Sua richiesta.
+
+Come primo passo, questa parrocchia verificherà i propri registri per accertare se il Suo Battesimo sia stato celebrato presso questa sede.
+
+* Se il Battesimo risulterà registrato in questa parrocchia, trasmetteremo prontamente la Sua richiesta all’Ordinario Diocesano, allegando il certificato di Battesimo. La Curia diocesana La contatterà per un colloquio personale, volto a chiarire le conseguenze canoniche della decisione espressa. Qualora la Sua volontà resti confermata, l’Ordinario emetterà un apposito Decreto e questa parrocchia provvederà all’annotazione sul registro di Battesimo.
+
+* Se invece il Battesimo non risulterà nei registri di questa parrocchia, Le comunicheremo l’impossibilità di procedere oltre in questa sede e Le indicheremo la parrocchia alla quale rivolgersi.
+
+Conclusa la verifica, sarà nostra cura informarLa dell’esito.
+
+Ci preme ricordarle che la Chiesa non "cancella" il dato storico del sacramento (che resta un fatto avvenuto), ma annota formalmente la volontà di non appartenere più alla Chiesa cattolica.
+
+Cordiali saluti,
+Segreteria Parrocchia Sant'Eugenio
+
+⚠️ REGOLE CRITICHE:
+1. NON invitare a telefonare.
+2. NON invitare a fissare un appuntamento in segreteria (sarà la Curia a farlo).
+3. NON aggiungere commenti pastorali o teologici oltre a quanto scritto sopra.
+4. Mantieni rigorosamente la terza persona o il "noi" istituzionale.
+═══════════════════════════════════════════════════════════════════════════`;
   }
 }
 

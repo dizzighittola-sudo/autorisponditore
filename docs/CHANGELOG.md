@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.5.2] - 2026-01-21
+
+### 🎉 Added
+- **Formal Baptism Cancellation Template (Sbattezzo)**: Dedicated code-level template to ensure administrative, formal, and non-pastoral responses to defection requests.
+- **Formal Classification Category**: New `FORMAL` internal category to bypass generic pastoral logic for administrative requests.
+- **Improved Keyword Detection**: Added specific terms for baptism cancellation and apostasy detection.
+
+### 🔧 Changed
+- **PromptEngine Scaling**: Increased modular template count to **19** to accommodate the new formal procedure.
+- **Response Validation**: Aligned the validator to support the new blinded sbattezzo template while maintaining strict anti-hallucination checks.
+- **Institutional Tone**: Standardized sbattezzo responses to the institutional "plural" ("con la presente confermiamo").
+
 ## [2.5.1] - 2026-01-21
 
 ### 🔧 Improved

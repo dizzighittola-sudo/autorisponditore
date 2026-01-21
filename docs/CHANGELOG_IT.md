@@ -7,6 +7,18 @@ e questo progetto aderisce a [Semantic Versioning](https://semver.org/lang/it/).
 
 ---
 
+## [2.5.2] - 2026-01-21
+
+### 🎉 Aggiunto
+- **Template Formale Sbattezzo**: Template dedicato a livello di codice per garantire risposte amministrative, formali e non pastorali alle richieste di sbattezzo.
+- **Categoria di Classificazione Formale**: Nuova categoria interna `FORMAL` per bypassare la logica pastorale generica per le richieste amministrative.
+- **Rilevamento Parole Chiave Migliorato**: Aggiunti termini specifici per il rilevamento di richieste di sbattezzo e apostasia.
+
+### 🔧 Modificato
+- **Scaling PromptEngine**: Aumentato il numero di template modulari a **19** per ospitare la nuova procedura formale.
+- **Validazione Risposta**: Allineato il validatore per supportare il nuovo template "blindato" mantenendo controlli rigorosi contro le allucinazioni.
+- **Tono Istituzionale**: Standardizzate le risposte allo sbattezzo con il plurale istituzionale ("con la presente confermiamo").
+
 ## [2.5.1] - 2026-01-21
 
 ### 🔧 Migliorato

@@ -123,6 +123,20 @@ class RequestTypeClassifier {
       { pattern: /\binsegnamento della chiesa\b/i, weight: 3 }
     ];
 
+    // ========================================================================
+    // INDICATORI FORMALI / AMMINISTRATIVI (Sbattezzo)
+    // ========================================================================
+    this.FORMAL_INDICATORS = [
+      { pattern: /\bsbattezzo\b/i, weight: 4 },
+      { pattern: /\bapostasia\b/i, weight: 4 },
+      { pattern: /\bapostatare\b/i, weight: 4 },
+      { pattern: /\bcancellazione dal registro\b/i, weight: 4 },
+      { pattern: /\bnon mi ritengo più cristiano\b/i, weight: 4 },
+      { pattern: /\bnon voglio più risultare\b/i, weight: 3 },
+      { pattern: /\babbandonare la fede\b/i, weight: 3 },
+      { pattern: /\babbandonare la religione\b/i, weight: 3 }
+    ];
+
     console.log('✓ RequestTypeClassifier inizializzato');
   }
 
@@ -150,6 +164,8 @@ class RequestTypeClassifier {
     const technicalScore = technicalResult.score;
     const pastoralScore = pastoralResult.score;
     const doctrineScore = doctrineResult.score;
+    const formalResult = this._calculateScore(text, this.FORMAL_INDICATORS);
+    const formalScore = formalResult.score;
 
     // Determina tipo (Logica Ibrida)
     let requestType = 'technical';
@@ -162,7 +178,9 @@ class RequestTypeClassifier {
       console.log(`   🤖 Classificatore ibrido: Usato risultato Gemini (${requestType.toUpperCase()}, conf=${externalHint.confidence})`);
     } else {
       // Fallback a Regex
-      if (doctrineScore >= 3) {
+      if (formalScore >= 4) {
+        requestType = 'formal'; // Nuova categoria interna
+      } else if (doctrineScore >= 3) {
         requestType = 'doctrinal';
       } else if (pastoralScore >= 3 && pastoralScore > technicalScore) {
         requestType = 'pastoral';
@@ -186,12 +204,14 @@ class RequestTypeClassifier {
       technicalScore: technicalScore,
       pastoralScore: pastoralScore,
       doctrineScore: doctrineScore,
+      formalScore: formalScore,
       needsDiscernment: needsDiscernment,
       needsDoctrine: needsDoctrine,
       detectedIndicators: [
         ...technicalResult.matched,
         ...pastoralResult.matched,
-        ...doctrineResult.matched
+        ...doctrineResult.matched,
+        ...formalResult.matched
       ]
     };
 
@@ -278,7 +298,7 @@ Linee guida per la risposta:
 Questa è una richiesta di SPIEGAZIONE dottrinale generale.
 ✅ DEVI: Spiegare l'insegnamento della Chiesa
 ✅ DEVI: Essere chiaro, fedele, informativo
-❌ NON: Rimandare al sacerdote per domande teoriche
+❌ NON: Rimandare al sacerdote per domande teorie
 ❌ NON: Evitare di rispondere per "prudenza"
 
 Il rinvio al sacerdote è riservato SOLO a:
@@ -286,6 +306,16 @@ Il rinvio al sacerdote è riservato SOLO a:
 - Discernimento su stati di vita
 - Accompagnamento spirituale individuale
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+    } else if (requestType === 'formal') {
+      return `
+🎯 TIPO RICHIESTA RILEVATO: FORMALE / AMMINISTRATIVA (SBATTEZZO)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Linee guida per la risposta:
+- USA ESCLUSIVAMENTE IL TEMPLATE "SBATTEZZO"
+- NON aggiungere consigli pastorali o inviti al colloquio non previsti nel template
+- Tono professionale, neutro e formale
+- Non fare moralismi o commenti teologici extra
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
     }
 
     // Fallback predefinito
