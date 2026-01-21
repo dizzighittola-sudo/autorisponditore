@@ -1,0 +1,23 @@
+# Ignora file git
+.git/
+.gitignore
+
+# Ignora documentazione (opzionale, ma risparmia spazio su GAS)
+# README.md
+# README_IT.md
+# CHANGELOG.md
+# CHANGELOG_IT.md
+# ARCHITECTURE.md
+# ARCHITECTURE_IT.md
+# CONTRIBUTING.md
+# CONTRIBUTING_IT.md
+# gas_usage_examples.md
+
+# Ignora la configurazione sanitizzata (su GAS usiamo quella vera)
+gas_config_s.js
+*_s.js
+*.js.template
+
+ID dei due progetti.txt
+tests/simulate*_node.js
+tests/output.log
