@@ -596,43 +596,46 @@ class MemoryService {
    * Verifica se il servizio è sano
    */
   isHealthy() {
-    // ========================================================================
-    // EVOLUZIONE 2: COMPLETENESS SCORING (Metodi Sperimentali)
-    // ========================================================================
-
-    /**
-     * Calcola quanto della domanda originale è stato coperto
-     * (Funzionalità avanzata per future implementazioni di auto-valutazione)
-     */
-    _calculateCompleteness(userQuestion, botResponse) {
-      // Estrai richieste informative
-      const requests = [];
-      if (/\bquando\b/i.test(userQuestion)) requests.push('timing');
-      if (/\bdove\b/i.test(userQuestion)) requests.push('location');
-      if (/\bcome\b/i.test(userQuestion)) requests.push('procedure');
-      if (/\bquanto|costo|prezzo/i.test(userQuestion)) requests.push('cost');
-      if (/\bdocument|certificat/i.test(userQuestion)) requests.push('documents');
-
-      if (requests.length === 0) return 1.0; // Nessuna richiesta esplicita rilevabile
-
-      // Verifica copertura (euristica semplice)
-      let covered = 0;
-      const respLower = botResponse.toLowerCase();
-
-      requests.forEach(req => {
-        let hit = false;
-        if (req === 'timing' && /\d{1,2}[:.]\d{2}|mattina|pomeriggio|ore/i.test(respLower)) hit = true;
-        if (req === 'location' && /via|piazza|chiesa|ufficio|sacrestia/i.test(respLower)) hit = true;
-        if (req === 'procedure' && /iscri|porta|invia|compila/i.test(respLower)) hit = true;
-        if (req === 'cost' && /euro|€|gratuit|offert/i.test(respLower)) hit = true;
-        if (req === 'documents' && /document|certificat|nulla osta/i.test(respLower)) hit = true;
-
-        if (hit) covered++;
-      });
-
-      return covered / requests.length;
-    }
+    return this._initialized;
   }
+
+  // ========================================================================
+  // EVOLUZIONE 2: COMPLETENESS SCORING (Metodi Sperimentali)
+  // ========================================================================
+
+  /**
+   * Calcola quanto della domanda originale è stato coperto
+   * (Funzionalità avanzata per future implementazioni di auto-valutazione)
+   */
+  _calculateCompleteness(userQuestion, botResponse) {
+    // Estrai richieste informative
+    const requests = [];
+    if (/\bquando\b/i.test(userQuestion)) requests.push('timing');
+    if (/\bdove\b/i.test(userQuestion)) requests.push('location');
+    if (/\bcome\b/i.test(userQuestion)) requests.push('procedure');
+    if (/\bquanto|costo|prezzo/i.test(userQuestion)) requests.push('cost');
+    if (/\bdocument|certificat/i.test(userQuestion)) requests.push('documents');
+
+    if (requests.length === 0) return 1.0; // Nessuna richiesta esplicita rilevabile
+
+    // Verifica copertura (euristica semplice)
+    let covered = 0;
+    const respLower = botResponse.toLowerCase();
+
+    requests.forEach(req => {
+      let hit = false;
+      if (req === 'timing' && /\d{1,2}[:.]\d{2}|mattina|pomeriggio|ore/i.test(respLower)) hit = true;
+      if (req === 'location' && /via|piazza|chiesa|ufficio|sacrestia/i.test(respLower)) hit = true;
+      if (req === 'procedure' && /iscri|porta|invia|compila/i.test(respLower)) hit = true;
+      if (req === 'cost' && /euro|€|gratuit|offert/i.test(respLower)) hit = true;
+      if (req === 'documents' && /document|certificat|nulla osta/i.test(respLower)) hit = true;
+
+      if (hit) covered++;
+    });
+
+    return covered / requests.length;
+  }
+}
 }
 
 // Funzione factory
