@@ -677,7 +677,8 @@ Dettaglio: ${v.reason}
       // Costruisci array di oggetti topic (nuovo formato)
       const topicsWithObjects = providedTopics.map(topic => ({
         topic: topic,
-        reaction: 'unknown',
+        userReaction: 'unknown',
+        context: null,
         timestamp: new Date().toISOString()
       }));
 
@@ -933,27 +934,46 @@ Dettaglio: ${v.reason}
       acknowledged: [
         'ho capito', 'tutto chiaro', 'grazie per la spiegazione', 'ok grazie',
         'perfetto', 'chiarissimo', 'ricevuto'
+      ],
+      needs_expansion: [
+        'puoi aggiungere', 'maggiori dettagli', 'più dettagli', 'approfondire',
+        'puoi spiegare meglio', 'serve più', 'potresti ampliare'
       ]
     };
 
-    previousTopics.forEach(info => {
-      const topic = (typeof info === 'object') ? info.topic : info;
-      // Se l'utente menziona il topic o parole chiave correlate
-      // (Semplificazione: match parziale sul nome del topic)
-      if (bodyLower.includes(topic.toLowerCase())) {
+    const matchedQuestioned = patterns.questioned.find(p => bodyLower.includes(p));
+    const matchedAcknowledged = patterns.acknowledged.find(p => bodyLower.includes(p));
+    const matchedExpansion = patterns.needs_expansion.find(p => bodyLower.includes(p));
 
-        // Check questioned
-        if (patterns.questioned.some(p => bodyLower.includes(p))) {
-          console.log(`🧠 Inferred Reaction: QUESTIONED su topic '${topic}'`);
-          this.memoryService.updateReaction(threadId, topic, 'questioned');
-        }
-        // Check acknowledged
-        else if (patterns.acknowledged.some(p => bodyLower.includes(p))) {
-          console.log(`🧠 Inferred Reaction: ACKNOWLEDGED su topic '${topic}'`);
-          this.memoryService.updateReaction(threadId, topic, 'acknowledged');
-        }
-      }
-    });
+    let inferredReaction = null;
+    if (matchedQuestioned) {
+      inferredReaction = { type: 'questioned', match: matchedQuestioned };
+    } else if (matchedExpansion) {
+      inferredReaction = { type: 'needs_expansion', match: matchedExpansion };
+    } else if (matchedAcknowledged) {
+      inferredReaction = { type: 'acknowledged', match: matchedAcknowledged };
+    }
+
+    if (!inferredReaction) return;
+
+    // Preferisci topic menzionati esplicitamente; fallback all'ultimo topic noto
+    const normalizedTopics = previousTopics.map(info => (typeof info === 'object' ? info.topic : info));
+    let targetTopic = normalizedTopics.find(topic => bodyLower.includes(topic.toLowerCase()));
+
+    if (!targetTopic) {
+      targetTopic = normalizedTopics[normalizedTopics.length - 1];
+    }
+
+    if (!targetTopic) return;
+
+    const context = {
+      source: 'user_reply',
+      matchedPhrase: inferredReaction.match,
+      excerpt: userBody.substring(0, 160)
+    };
+
+    console.log(`🧠 Inferred Reaction: ${inferredReaction.type.toUpperCase()} su topic '${targetTopic}'`);
+    this.memoryService.updateReaction(threadId, targetTopic, inferredReaction.type, context);
   }
 }
 

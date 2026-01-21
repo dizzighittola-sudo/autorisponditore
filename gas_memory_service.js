@@ -365,8 +365,9 @@ class MemoryService {
    * @param {string} threadId 
    * @param {string} topic 
    * @param {string} reaction 'acknowledged' | 'questioned' | 'needs_expansion'
+   * @param {object} context (Optional) info extra su scippet/match
    */
-  updateReaction(threadId, topic, reaction) {
+  updateReaction(threadId, topic, reaction, context = null) {
     if (!this._initialized || !threadId || !topic) return;
 
     // Recupera memoria attuale
@@ -380,7 +381,13 @@ class MemoryService {
     const newInfos = infos.map(info => {
       if (info.topic === topic) {
         modified = true;
-        return { ...info, reaction: reaction, lastInteraction: Date.now() };
+        // Aggiorna userReaction e context se fornito
+        return {
+          ...info,
+          userReaction: reaction,
+          context: context || info.context || null,
+          lastInteraction: Date.now()
+        };
       }
       return info;
     });
@@ -441,9 +448,11 @@ class MemoryService {
     try {
       if (values[4]) {
         const raw = JSON.parse(values[4]);
-        // Normalizzazione retrocompatibile: converte stringhe in oggetti
+        // Normalizzazione retrocompatibile: converte stringhe o oggetti vecchi
         providedInfo = Array.isArray(raw) ? raw.map(item => {
-          if (typeof item === 'string') return { topic: item, reaction: 'unknown', timestamp: Date.now() };
+          if (typeof item === 'string') return { topic: item, userReaction: 'unknown', context: null, timestamp: Date.now() };
+          // Migration: se c'era 'reaction' (vecchio) ma non 'userReaction', mappalo
+          if (item.reaction && !item.userReaction) item.userReaction = item.reaction;
           return item;
         }) : [];
       }

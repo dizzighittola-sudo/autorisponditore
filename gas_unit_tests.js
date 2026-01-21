@@ -441,6 +441,14 @@ function testMemoryService() {
         const obj = memory._rowToObject(invalidRow);
         assertEqual(obj.lastUpdated, null,
             "Timestamp invalido deve essere convertito in null");
+
+        // Test Migration 'reaction' -> 'userReaction'
+        const legacyRow = ['t2', 'it', 'cat', 'tone', '[{"topic":"test","reaction":"ok","timestamp":123}]', '123', '0', '0'];
+        const legacyObj = memory._rowToObject(legacyRow);
+        if (legacyObj.providedInfo && legacyObj.providedInfo.length > 0) {
+            assertEqual(legacyObj.providedInfo[0].userReaction, 'ok',
+                "Deve migrare 'reaction' in 'userReaction'");
+        }
     }
 }
 
